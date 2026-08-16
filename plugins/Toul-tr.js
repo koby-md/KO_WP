@@ -15,24 +15,24 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
     return m.reply(`*🧶هذا للترجمة*\n\nيرجى كتابة النص المراد ترجمته🧶.\n*مثال:* ${usedPrefix + command} hello🧶`);
   }
 
-  // التحقق مما إذا كانت الكلمة الأولى عبارة عن رمز لغة من حرفين (مثل ar, en, fr)
+  // التحقق مما إذا كانت الكلمة الأولى عبارة عن رمز لغة من حرفين (مثل ar, en, fr, de)
   const firstWord = args[0] ? args[0].toLowerCase() : '';
   const isLangCode = firstWord.length === 2;
 
-  // === الحالة الأولى: تم تحديد اللغة (مثل .tr en hello أو عند الضغط على الزر) ===
+  // === الحالة الأولى: تم تحديد اللغة (مثل .tr de hello أو عند الضغط على الزر) ===
   if (isLangCode && args.length > 1) {
     const targetLang = firstWord;
     const textToTranslate = args.slice(1).join(' ');
 
     try {
       await m.react('⏳');
-      
+
       // الاستدعاء الخاص بمكتبة translate-google-api
       const result = await translate(textToTranslate, { to: targetLang });
-      
+
       // استخراج النص المترجم (المكتبة ترجع النتيجة كمصفوفة في الغالب)
       const translatedText = Array.isArray(result) ? result[0] : result;
-      
+
       await m.reply(translatedText);
       await m.react('✅');
     } catch (error) {
@@ -78,6 +78,13 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
                       buttonParamsJson: JSON.stringify({
                         display_text: '🇫🇷 الفرنسية',
                         id: `${usedPrefix + command} fr ${textToTranslate}`
+                      })
+                    },
+                    {
+                      name: 'quick_reply',
+                      buttonParamsJson: JSON.stringify({
+                        display_text: '🇩🇪 الألمانية',
+                        id: `${usedPrefix + command} de ${textToTranslate}`
                       })
                     }
                   ]

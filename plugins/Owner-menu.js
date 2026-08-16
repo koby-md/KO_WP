@@ -68,6 +68,13 @@ let handler = async (m, { conn }) => {
                       id: '.tr'
                     })
                   },
+{
+                    name: 'quick_reply',
+                    buttonParamsJson: JSON.stringify({
+                      display_text: '🔋 .apk',
+                      id: '.apk'
+                    })
+                  },
                   
                   {
                     name: 'quick_reply',

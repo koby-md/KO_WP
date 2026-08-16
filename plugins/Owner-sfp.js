@@ -5,7 +5,7 @@ let handler = async (m, { text, usedPrefix, command }) => {
     if (!m.quoted?.text) throw `اعطيني الكود 📥`
     let filePath = `plugins/${text}.js`
     await fs.writeFileSync(filePath, m.quoted.text)
-    m.reply(`تم الإنشتء ✅️🔋`)
+    m.reply(`تم الإنشاء ✅️🔋`)
 }
 
 handler.help = ['sfp']

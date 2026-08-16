@@ -1,6 +1,0 @@
-node_modules
-.env
-database.json
-npm-debug.log
-sessions
-package-lock.json

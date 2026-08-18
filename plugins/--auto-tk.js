@@ -15,10 +15,37 @@ export async function before(m, { conn }) {
 
     const data = await ttdl(text)
 
-    if (!data?.status) return
+    if (!data?.status) {
+      await m.react('❌')
+      return
+    }
 
-    // ====== إرسال الفيديو ======
-    if (data.video?.[0]) {
+    // ==========================================
+    // TikTok Photo Mode / صور متعددة
+    // ==========================================
+    if (Array.isArray(data.video) && data.video.length > 1) {
+
+      for (const imageUrl of data.video) {
+        try {
+          await conn.sendMessage(
+            m.chat,
+            {
+              image: { url: imageUrl }
+            },
+            { quoted: m }
+          )
+        } catch (e) {
+          console.error('Error sending image:', e)
+        }
+      }
+
+    }
+
+    // ==========================================
+    // فيديو عادي
+    // ==========================================
+    else if (data.video?.[0]) {
+
       await conn.sendMessage(
         m.chat,
         {
@@ -27,10 +54,14 @@ export async function before(m, { conn }) {
         },
         { quoted: m }
       )
+
     }
 
-    // ====== إرسال الصوت ======
+    // ==========================================
+    // إرسال الصوت بعد الصور / الفيديو
+    // ==========================================
     if (data.audio?.[0]) {
+
       await conn.sendMessage(
         m.chat,
         {
@@ -40,12 +71,13 @@ export async function before(m, { conn }) {
         },
         { quoted: m }
       )
+
     }
 
     await m.react('✅')
 
   } catch (e) {
-    console.error(e)
+    console.error('TikTok Error:', e)
     await m.react('❌')
   }
 }

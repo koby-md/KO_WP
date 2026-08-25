@@ -10,17 +10,25 @@ import { createInterface } from 'readline'
 import yargs from 'yargs'
 import express from 'express'
 import chalk from 'chalk'
-import path from 'path'
 import os from 'os'
 import { promises as fsPromises } from 'fs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const require = createRequire(__dirname)
+
 const { say } = cfonts
-const rl = createInterface(process.stdin, process.stdout)
+
+const rl = createInterface({
+  input: process.stdin,
+  output: process.stdout
+})
 
 const app = express()
 const port = process.env.PORT || 8080
+
+// ===============================
+// 🎨 BANNER
+// ===============================
 
 say('Senna FG98', {
   font: 'pallet',
@@ -34,18 +42,51 @@ say('senna-bot By FG Ig: @fg.error', {
   gradient: ['cyan', 'magenta']
 })
 
+// ===============================
+// 🌐 EXPRESS SERVER
+// ===============================
+
 app.listen(port, () => {
-  console.log(chalk.green(`🌐 Puerto ${port} está abierto`))
+  console.log(
+    chalk.green(`🌐 Puerto ${port} está abierto`)
+  )
 })
+
+// ===============================
+// ⚙️ ESTADO
+// ===============================
 
 let isRunning = false
 let isRestarting = false
 
+// مهم:
+// باش ما نعاودوش نسجلو watchFile أكثر من مرة
+let fileWatching = false
+
+// باش ما نعاودوش start() فوق بعضياتهم
+let startLock = false
+
+// ===============================
+// 🚀 START
+// ===============================
+
 async function start(file) {
-  if (isRunning) return
+
+  // منع تشغيل أكثر من process في نفس الوقت
+  if (isRunning || startLock) {
+    console.log(
+      chalk.yellow('⚠️ El proceso ya está ejecutándose...')
+    )
+    return
+  }
+
+  startLock = true
   isRunning = true
 
-  let args = [join(__dirname, file), ...process.argv.slice(2)]
+  const args = [
+    join(__dirname, file),
+    ...process.argv.slice(2)
+  ]
 
   say([process.argv[0], ...args].join(' '), {
     font: 'console',
@@ -53,91 +94,283 @@ async function start(file) {
     gradient: ['red', 'magenta']
   })
 
+  // ===============================
+  // CLUSTER
+  // ===============================
+
   setupMaster({
     exec: args[0],
-    args: args.slice(1),
+    args: args.slice(1)
   })
 
-  let p = fork()
+  const p = fork()
 
-  // 📩 MENSAJES DEL PROCESO HIJO
+  // بعدما يتخلق process
+  startLock = false
+
+  // ===============================
+  // 📩 رسائل من PROCESS CHILD
+  // ===============================
+
   p.on('message', data => {
+
     console.log('[RECEIVED]', data)
 
     switch (data) {
+
       case 'reset':
+
+        if (isRestarting) return
+
         isRestarting = true
-        p.process.kill()
+
+        try {
+          p.process.kill()
+        } catch {}
+
         break
 
       case 'uptime':
-        p.send(process.uptime())
+
+        try {
+          p.send(process.uptime())
+        } catch {}
+
         break
     }
   })
 
-  // ❌ CUANDO EL PROCESO MUERE
-  p.on('exit', (code) => {
+  // ===============================
+  // ❌ PROCESS EXIT
+  // ===============================
+
+  p.once('exit', code => {
+
     isRunning = false
 
+    // -------------------------------
+    // 🔄 RESTART MANUAL
+    // -------------------------------
+
     if (isRestarting) {
-      console.log(chalk.yellow('🔄 Reinicio manual detectado...'))
+
+      console.log(
+        chalk.yellow(
+          '🔄 Reinicio manual detectado...'
+        )
+      )
+
       isRestarting = false
-      return start(file)
+
+      // تأخير صغير باش القديم يسالي مزيان
+      setTimeout(() => {
+        start(file)
+      }, 500)
+
+      return
     }
 
-    console.error('❎ Error inesperado:', code)
+    // -------------------------------
+    // ❌ PROCESS CRASH
+    // -------------------------------
+
+    console.error(
+      chalk.red(`❎ Proceso terminado. Código: ${code}`)
+    )
+
+    // -------------------------------
+    // 👀 WATCH FILE
+    // -------------------------------
 
     if (code !== 0) {
-      watchFile(args[0], () => {
-        unwatchFile(args[0])
-        console.log(chalk.blue('♻ Archivo actualizado, reiniciando...'))
-        start(file)
-      })
+
+      // منع تسجيل watcher جديد
+      if (fileWatching) {
+
+        console.log(
+          chalk.yellow(
+            '⚠️ Ya existe un watcher activo.'
+          )
+        )
+
+        return
+      }
+
+      fileWatching = true
+
+      console.log(
+        chalk.yellow(
+          `👀 Esperando cambios en ${file}...`
+        )
+      )
+
+      const filePath = args[0]
+
+      const restartOnChange = () => {
+
+        // إزالة watcher مباشرة
+        try {
+          unwatchFile(filePath, restartOnChange)
+        } catch {}
+
+        fileWatching = false
+
+        console.log(
+          chalk.blue(
+            `♻ Archivo actualizado, reiniciando...`
+          )
+        )
+
+        setTimeout(() => {
+          start(file)
+        }, 500)
+      }
+
+      watchFile(
+        filePath,
+        {
+          interval: 1000
+        },
+        restartOnChange
+      )
     }
   })
 
-  // 🖥 INFO SISTEMA
-  console.log(chalk.yellow(`🖥️ ${os.type()}, ${os.release()} - ${os.arch()}`))
-  console.log(chalk.yellow(`💾 RAM Total: ${(os.totalmem() / 1024 / 1024 / 1024).toFixed(2)} GB`))
-  console.log(chalk.yellow(`💽 RAM Libre: ${(os.freemem() / 1024 / 1024 / 1024).toFixed(2)} GB`))
+  // ===============================
+  // 🖥 INFO SYSTEM
+  // ===============================
 
-  try {
-    const packageJsonData = await fsPromises.readFile('./package.json', 'utf-8')
-    const packageJsonObj = JSON.parse(packageJsonData)
-
-    console.log(chalk.blue.bold('\n📦 Información del Paquete'))
-    console.log(chalk.cyan(`Nombre: ${packageJsonObj.name}`))
-    console.log(chalk.cyan(`Versión: ${packageJsonObj.version}`))
-    console.log(chalk.cyan(`Autor: ${packageJsonObj.author?.name || 'No definido'}`))
-  } catch (err) {
-    console.error(chalk.red('❌ No se pudo leer package.json'))
-  }
-
-  console.log(chalk.blue.bold('\n⏰ Hora Actual'))
   console.log(
-    chalk.cyan(
-      new Date().toLocaleString('es-ES', {
-        timeZone: 'America/Argentina/Buenos_Aires'
-      })
+    chalk.yellow(
+      `🖥️ ${os.type()}, ${os.release()} - ${os.arch()}`
     )
   )
 
+  console.log(
+    chalk.yellow(
+      `💾 RAM Total: ${(os.totalmem() / 1024 / 1024 / 1024).toFixed(2)} GB`
+    )
+  )
+
+  console.log(
+    chalk.yellow(
+      `💽 RAM Libre: ${(os.freemem() / 1024 / 1024 / 1024).toFixed(2)} GB`
+    )
+  )
+
+  // ===============================
+  // 📦 PACKAGE.JSON
+  // ===============================
+
+  try {
+
+    const packageJsonData =
+      await fsPromises.readFile(
+        join(__dirname, 'package.json'),
+        'utf-8'
+      )
+
+    const packageJsonObj =
+      JSON.parse(packageJsonData)
+
+    console.log(
+      chalk.blue.bold(
+        '\n📦 Información del Paquete'
+      )
+    )
+
+    console.log(
+      chalk.cyan(
+        `Nombre: ${packageJsonObj.name}`
+      )
+    )
+
+    console.log(
+      chalk.cyan(
+        `Versión: ${packageJsonObj.version}`
+      )
+    )
+
+    console.log(
+      chalk.cyan(
+        `Autor: ${packageJsonObj.author?.name || 'No definido'}`
+      )
+    )
+
+  } catch (err) {
+
+    console.error(
+      chalk.red(
+        '❌ No se pudo leer package.json'
+      )
+    )
+  }
+
+  // ===============================
+  // ⏰ HORA
+  // ===============================
+
+  console.log(
+    chalk.blue.bold(
+      '\n⏰ Hora Actual'
+    )
+  )
+
+  console.log(
+    chalk.cyan(
+      new Date().toLocaleString(
+        'es-ES',
+        {
+          timeZone:
+            'America/Argentina/Buenos_Aires'
+        }
+      )
+    )
+  )
+
+  // ===============================
+  // ⏱️ KEEP ALIVE
+  // ===============================
+
   setInterval(() => {}, 1000)
 
-  // 📟 Consola interactiva
-  let opts = new Object(yargs(process.argv.slice(2)).exitProcess(false).parse())
+  // ===============================
+  // 🖥️ CONSOLA
+  // ===============================
 
-  if (!opts['test'])
-    if (!rl.listenerCount())
+  const opts = new Object(
+    yargs(process.argv.slice(2))
+      .exitProcess(false)
+      .parse()
+  )
+
+  if (!opts['test']) {
+
+    if (!rl.listenerCount('line')) {
+
       rl.on('line', line => {
-        p.emit('message', line.trim())
+
+        const text = line.trim()
+
+        if (!text) return
+
+        try {
+          p.emit('message', text)
+        } catch (e) {
+          console.error(
+            chalk.red(
+              '❌ Error enviando mensaje al proceso:',
+              e
+            )
+          )
+        }
       })
+    }
+  }
 }
 
-
-//---sub bot 
-
-///
+// ===============================
+// 🤖 START BOT
+// ===============================
 
 start('main.js')

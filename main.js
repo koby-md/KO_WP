@@ -1,4 +1,3 @@
-
 //-- process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = '0';
 import './config.js'; 
 import { createRequire } from "module"; // Bring in the ability to create the 'require' method
@@ -167,24 +166,24 @@ console.log('\n')
  console.log(chalk.bold.cyan('╔══════════════════════════════════════╗'))
  console.log(chalk.bold.cyan('║        📲 CÓDIGO DE VINCULACIÓN      ║'))
  console.log(chalk.bold.cyan('╚══════════════════════════════════════╝'))
- 
+
  console.log('\n')
- 
+
  // Marco del código
  console.log(chalk.bold.red('        ╔════════════════════╗'))
  console.log(chalk.bold.red('        ║') + chalk.bold.yellow(`     ${code}      `) + chalk.bold.red('║'))
  console.log(chalk.bold.red('        ╚════════════════════╝'))
- 
+
  console.log('\n')
- 
+
  console.log(chalk.bold.hex('#FFD700')('📱 PASOS PARA VINCULAR:\n'))
- 
+
  console.log(chalk.hex('#00BFFF')('   1) ') + chalk.bold.green('Abre WhatsApp'))
  console.log(chalk.hex('#00BFFF')('   2) ') + chalk.bold.cyan('Ve a Dispositivos vinculados'))
  console.log(chalk.hex('#00BFFF')('   3) ') + chalk.bold.magenta('Toca "Vincular con número"'))
- 
+
  console.log('\n')
-    
+
   }, 3000)
 }
 //--
@@ -219,8 +218,8 @@ async function clearTmp() {
 }
 
 setInterval(async () => {
-	await clearTmp()
-	//console.log(chalk.cyan(`✅  Auto clear  | Se limpio la carpeta tmp`))
+        await clearTmp()
+        //console.log(chalk.cyan(`✅  Auto clear  | Se limpio la carpeta tmp`))
 }, 60000) //1 munto
 
 
@@ -301,7 +300,7 @@ global.conn.store = store
   conn.ev.on('groups.update', conn.groupsUpdate)
   conn.ev.on('connection.update', conn.connectionUpdate)
   conn.ev.on('creds.update', conn.credsUpdate)
-    
+
   conn.ev.on('messages.update', async (updates) => {
     for (const update of updates) {
         try {
